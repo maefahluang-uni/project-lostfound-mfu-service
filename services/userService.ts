@@ -1,11 +1,26 @@
 import { db, auth } from "../src/config/firebaseConfig";
 
+interface UserResponse {
+  message: string;
+  userId?: string;
+  token?: string;
+}
+
 const signupUser = async (
   fullName: string,
   email: string,
   password: string
-) => {
+): Promise<UserResponse> => {
   try {
+    if (!fullName || !email || !password) {
+      throw new Error("All fields are required");
+    }
+
+    const existingUser = await auth.getUserByEmail(email).catch(() => null);
+    if (existingUser) {
+      throw new Error("Email is already in use");
+    }
+
     const userRecord = await auth.createUser({
       email,
       password,
@@ -25,12 +40,17 @@ const signupUser = async (
   }
 };
 
-const signinUser = async (email: string, password: string) => {
+const signinUser = async (
+  email: string,
+  password: string
+): Promise<UserResponse> => {
   try {
-    const user = await auth.getUserByEmail(email);
-    if (!user) {
-      throw new Error("User not found");
+    if (!email || !password) {
+      throw new Error("Email and password are required");
     }
+
+    const user = await auth.getUserByEmail(email);
+    if (!user) throw new Error("User not found");
 
     const token = await auth.createCustomToken(user.uid);
 
@@ -44,26 +64,15 @@ const signinUser = async (email: string, password: string) => {
   }
 };
 
-const logoutUser = async (uid: string) => {
-  try {
-    await auth.revokeRefreshTokens(uid);
-    return { message: "User logout successfully" };
-  } catch (error: any) {
-    throw new Error(`Error logging out user: ${error.message}`);
-  }
-};
-
 const getUser = async (uid: string) => {
   try {
+    if (!uid) throw new Error("User ID is required");
     const userRecord = await auth.getUser(uid);
-    if (!userRecord) {
-      throw new Error("User not found");
-    }
+    if (!userRecord) throw new Error("User not found");
 
     const userDoc = await db.collection("users").doc(uid).get();
-    if (!userDoc.exists) {
+    if (!userDoc.exists)
       throw new Error("User data is not found in the database");
-    }
 
     const postsSnapshot = await db
       .collection("posts")
@@ -87,14 +96,15 @@ const getUser = async (uid: string) => {
   }
 };
 
-const updateUser = async (uid: string, bio: string) => {
+const updateUser = async (
+  uid: string,
+  bio: string
+): Promise<{ message: string }> => {
   try {
-    const userRecord = await auth.getUser(uid);
-    if (!userRecord) {
-      throw new Error("User not found");
-    }
-    const userDoc = db.collection("users").doc(uid);
-    await userDoc.update({
+    if (!uid || !bio) throw new Error("User ID and bio are required");
+    await auth.getUser(uid);
+
+    await db.collection("users").doc(uid).update({
       bio,
     });
     return { message: "User profile updated successfully" };
@@ -103,38 +113,23 @@ const updateUser = async (uid: string, bio: string) => {
   }
 };
 
-const changePassword = async (
-  uid: string,
-  currentPassword: string,
-  newPassword: string
-) => {
+const changePassword = async (uid: string, newPassword: string) => {
   try {
-    const userRecord = await auth.getUser(uid);
-    if (!userRecord) {
-      throw new Error("User not found");
-    }
-    const userEmail = userRecord.email;
-    if (!userEmail) {
-      throw new Error("Email not found");
-    }
-
-    const user = await auth.getUserByEmail(userEmail);
-    if (!user) {
-      throw new Error("Invalid current password");
-    }
+    if (!uid || !newPassword)
+      throw new Error("User ID and new password are required");
+    // await auth.getUser(uid);
 
     await auth.updateUser(uid, { password: newPassword });
-    return { message: "Password updated successfully" };
+
+    await auth.revokeRefreshTokens(uid);
+
+    // const user = await auth.getUser(uid);
+    return {
+      message: "Password updated successfully",
+    };
   } catch (error: any) {
     throw new Error(`Error updaing password ${error.message}`);
   }
 };
 
-export {
-  signupUser,
-  signinUser,
-  logoutUser,
-  getUser,
-  updateUser,
-  changePassword,
-};
+export { signupUser, signinUser, getUser, updateUser, changePassword };

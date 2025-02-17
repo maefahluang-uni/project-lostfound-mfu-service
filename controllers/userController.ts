@@ -1,6 +1,5 @@
 import { json, Request, Response } from "express";
 import {
-  logoutUser,
   signinUser,
   signupUser,
   getUser,
@@ -27,20 +26,6 @@ const signinUserController = async (req: Request, res: Response) => {
   try {
     const user = await signinUser(email, password);
     res.status(201).json({ message: "User Signed in successfully", user });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const logoutUserController = async (req: Request, res: Response) => {
-  try {
-    const { uid } = req.body;
-    if (!uid) {
-      res.status(400).json({ error: "User ID is required" });
-    }
-
-    const result = await logoutUser(uid);
-    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -78,12 +63,12 @@ const updateUserController = async (req: Request, res: Response) => {
 
 const changePasswordController = async (req: Request, res: Response) => {
   try {
-    const { uid, currentPassword, newPassword } = req.body;
+    const { uid, newPassword } = req.body;
 
-    if (!uid || !currentPassword || !newPassword) {
+    if (!uid || !newPassword) {
       res.status(400).json({ error: "All fields are required" });
     }
-    const result = await changePassword(uid, currentPassword, newPassword);
+    const result = await changePassword(uid, newPassword);
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -93,7 +78,6 @@ const changePasswordController = async (req: Request, res: Response) => {
 export {
   sigupUserController,
   signinUserController,
-  logoutUserController,
   getUserController,
   updateUserController,
   changePasswordController,
