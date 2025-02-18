@@ -1,10 +1,30 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { db, auth } from "../src/config/firebaseConfig";
-
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updatePassword,
+} from "firebase/auth";
 interface UserResponse {
   message: string;
   userId?: string;
   token?: string;
 }
+
+const validateFields = (...fields: any[]) => {
+  if (fields.some((field) => !field)) {
+    throw new Error("All required fields must be provided");
+  }
+};
 
 const signupUser = async (
   fullName: string,
@@ -12,31 +32,24 @@ const signupUser = async (
   password: string
 ): Promise<UserResponse> => {
   try {
-    if (!fullName || !email || !password) {
-      throw new Error("All fields are required");
-    }
+    validateFields(fullName, email, password);
 
-    const existingUser = await auth.getUserByEmail(email).catch(() => null);
-    if (existingUser) {
-      throw new Error("Email is already in use");
-    }
-
-    const userRecord = await auth.createUser({
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
       email,
-      password,
-      displayName: fullName,
-    });
+      password
+    );
+    const user = userCredential.user;
 
-    await db.collection("users").doc(userRecord.uid).set({
+    await setDoc(doc(db, "users", user.uid), {
       fullName,
       email,
       bio: "",
       posts: [],
     });
-
-    return { message: "User created successfully", userId: userRecord.uid };
+    return { message: "User created successfully", userId: user.uid };
   } catch (error: any) {
-    throw new Error(`Error creating new user: ${error.message}`);
+    throw new Error(`Signup failed: ${error.message}`);
   }
 };
 
@@ -45,20 +58,18 @@ const signinUser = async (
   password: string
 ): Promise<UserResponse> => {
   try {
-    if (!email || !password) {
-      throw new Error("Email and password are required");
-    }
+    validateFields(email, password);
 
-    const user = await auth.getUserByEmail(email);
-    if (!user) throw new Error("User not found");
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    const user = userCredential.user;
 
-    const token = await auth.createCustomToken(user.uid);
+    const token = await user.getIdToken();
 
-    return {
-      message: "User signed in successfully",
-      token,
-      userId: user.uid,
-    };
+    return { message: "User signed in successfully", token, userId: user.uid };
   } catch (error: any) {
     throw new Error(`Error creating login user: ${error.message}`);
   }
@@ -66,30 +77,28 @@ const signinUser = async (
 
 const getUser = async (uid: string) => {
   try {
-    if (!uid) throw new Error("User ID is required");
-    const userRecord = await auth.getUser(uid);
-    if (!userRecord) throw new Error("User not found");
+    validateFields(uid);
 
-    const userDoc = await db.collection("users").doc(uid).get();
-    if (!userDoc.exists)
-      throw new Error("User data is not found in the database");
+    const userDoc = await getDoc(doc(db, "users", uid));
+    if (!userDoc.exists()) throw new Error("User data not found in database");
 
-    const postsSnapshot = await db
-      .collection("posts")
-      .where("userId", "==", uid)
-      .get();
+    const postsQuery = query(
+      collection(db, "posts"),
+      where("userId", "==", uid)
+    );
+    const postsSnapshot = await getDocs(postsQuery);
+
     const posts = postsSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
 
     return {
-      uid: userRecord.uid,
-      fullName: userDoc.data()?.fullName || userRecord.displayName,
-      email: userRecord.email,
+      uid,
+      fullName: userDoc.data()?.fullName || "Unknown User",
+      email: userDoc.data()?.email || "",
       bio: userDoc.data()?.bio || "",
       posts,
-      createdAt: userRecord.metadata.creationTime,
     };
   } catch (error: any) {
     throw new Error(`Error fetching user: ${error.message}`);
@@ -101,29 +110,24 @@ const updateUser = async (
   bio: string
 ): Promise<{ message: string }> => {
   try {
-    if (!uid || !bio) throw new Error("User ID and bio are required");
-    await auth.getUser(uid);
+    validateFields(uid, bio);
 
-    await db.collection("users").doc(uid).update({
-      bio,
-    });
+    await updateDoc(doc(db, "users", uid), { bio });
+
     return { message: "User profile updated successfully" };
   } catch (error: any) {
     throw new Error(`Error updating user profile: ${error.message}`);
   }
 };
 
-const changePassword = async (uid: string, newPassword: string) => {
+const changePassword = async (newPassword: string) => {
   try {
-    if (!uid || !newPassword)
-      throw new Error("User ID and new password are required");
-    // await auth.getUser(uid);
+    validateFields(newPassword);
 
-    await auth.updateUser(uid, { password: newPassword });
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("User must be authenticated");
 
-    await auth.revokeRefreshTokens(uid);
-
-    // const user = await auth.getUser(uid);
+    await updatePassword(currentUser, newPassword);
     return {
       message: "Password updated successfully",
     };
