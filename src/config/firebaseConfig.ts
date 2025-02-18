@@ -1,16 +1,23 @@
 import dotenv from "dotenv";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
-import { cert, initializeApp, ServiceAccount } from "firebase-admin/app";
-import serviceAccount from "./firebaseServiceAccount.json";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 dotenv.config();
 
-initializeApp({
-  credential: cert(serviceAccount as ServiceAccount),
-});
+const firebaseConfig = {
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIRBASE_MEASUREMENT_ID,
+};
 
-const db = getFirestore();
-const auth = getAuth();
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 export { db, auth };

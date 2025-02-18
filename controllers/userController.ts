@@ -1,4 +1,4 @@
-import { json, Request, Response } from "express";
+import { Request, Response } from "express";
 import {
   signinUser,
   signupUser,
@@ -63,12 +63,12 @@ const updateUserController = async (req: Request, res: Response) => {
 
 const changePasswordController = async (req: Request, res: Response) => {
   try {
-    const { uid, newPassword } = req.body;
+    const { newPassword } = req.body;
 
-    if (!uid || !newPassword) {
+    if (!newPassword) {
       res.status(400).json({ error: "All fields are required" });
     }
-    const result = await changePassword(uid, newPassword);
+    const result = await changePassword(newPassword);
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
