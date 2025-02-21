@@ -46,6 +46,8 @@ const signupUser = async (
       email,
       bio: "",
       posts: [],
+    }).catch((error) => {
+      console.error("Firestore write failed:", error);
     });
     return { message: "User created successfully", userId: user.uid };
   } catch (error: any) {
@@ -66,8 +68,11 @@ const signinUser = async (
       password
     );
     const user = userCredential.user;
-
     const token = await user.getIdToken();
+
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+
+    if (!userDoc.exists()) throw new Error("User data not found");
 
     return { message: "User signed in successfully", token, userId: user.uid };
   } catch (error: any) {
