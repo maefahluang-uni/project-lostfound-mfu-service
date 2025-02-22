@@ -24,8 +24,8 @@ const signinUserController = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
-    const user = await signinUser(email, password);
-    res.status(201).json({ message: "User Signed in successfully", user });
+    const { message, token, userId } = await signinUser(email, password);
+    res.status(201).json({ message, token, user: { userId } });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -68,6 +68,7 @@ const changePasswordController = async (req: Request, res: Response) => {
     if (!newPassword) {
       res.status(400).json({ error: "All fields are required" });
     }
+
     const result = await changePassword(newPassword);
     res.status(200).json(result);
   } catch (error: any) {
