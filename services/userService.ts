@@ -32,6 +32,7 @@ const signupUser = async (
       fullName,
       email,
       bio: "",
+      profileImage: "",
       posts: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
@@ -100,6 +101,7 @@ const getUser = async (uid: string) => {
       fullName: userDoc.data()?.fullName || userRecord.displayName || "Unknown User",
       email: userDoc.data()?.email || userRecord.email || "",
       bio: userDoc.data()?.bio || "",
+      profileImage: userDoc.data()?.profileImage,
       posts,
     };
   } catch (error: any) {
@@ -109,12 +111,14 @@ const getUser = async (uid: string) => {
 
 const updateUser = async (
   uid: string,
-  bio: string
+  fullName: string,
+  bio: string,
+  profileImage: string
 ): Promise<{ message: string }> => {
   try {
     validateFields(uid, bio);
 
-    await db.collection("users").doc(uid).update({ bio });
+    await db.collection("users").doc(uid).update({ fullName, bio, profileImage });
 
     return { message: "User profile updated successfully" };
   } catch (error: any) {
