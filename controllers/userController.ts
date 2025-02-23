@@ -6,6 +6,11 @@ import {
   updateUser,
   changePassword,
 } from "../services/userService";
+import multer from "multer";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../src/config/firebaseConfig";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const sigupUserController = async (req: Request, res: Response) => {
   const { fullName, email, password } = req.body;
@@ -47,15 +52,15 @@ const getUserController = async (req: Request, res: Response) => {
 const updateUserController = async (req: Request, res: Response) => {
   try {
     const { uid } = req.params;
-    const { bio } = req.body;
+    const { fullName, bio, profileImage } = req.body;
     if (!uid) {
       res.status(400).json({ error: "User ID is required" });
     }
-    if (!bio) {
-      res.status(400).json({ error: "Bio is required" });
-    }
-    const result = await updateUser(uid, bio);
-    res.status(201).json({ message: "User created successfully", result });
+
+    const result = await updateUser(uid, fullName, bio, profileImage);
+    res
+      .status(200)
+      .json({ message: "User created successfully", result: result });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -77,6 +82,7 @@ const changePasswordController = async (req: Request, res: Response) => {
 };
 
 export {
+  upload,
   sigupUserController,
   signinUserController,
   getUserController,

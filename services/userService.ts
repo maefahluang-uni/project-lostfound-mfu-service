@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  DocumentData,
   getDoc,
   getDocs,
   query,
@@ -45,6 +46,7 @@ const signupUser = async (
       fullName,
       email,
       bio: "",
+      profileImage: "",
       posts: [],
     }).catch((error) => {
       console.error("Firestore write failed:", error);
@@ -103,6 +105,7 @@ const getUser = async (uid: string) => {
       fullName: userDoc.data()?.fullName || "Unknown User",
       email: userDoc.data()?.email || "",
       bio: userDoc.data()?.bio || "",
+      profileImage: userDoc.data()?.profileImage,
       posts,
     };
   } catch (error: any) {
@@ -112,12 +115,12 @@ const getUser = async (uid: string) => {
 
 const updateUser = async (
   uid: string,
-  bio: string
+  fullName: string,
+  bio: string,
+  profileImage: string
 ): Promise<{ message: string }> => {
   try {
-    validateFields(uid, bio);
-
-    await updateDoc(doc(db, "users", uid), { bio });
+    await updateDoc(doc(db, "users", uid), { fullName, bio, profileImage });
 
     return { message: "User profile updated successfully" };
   } catch (error: any) {
