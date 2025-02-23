@@ -8,7 +8,6 @@ import {
 } from "../services/userService";
 import multer from "multer";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../src/config/firebaseConfig";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -68,13 +67,13 @@ const updateUserController = async (req: Request, res: Response) => {
 
 const changePasswordController = async (req: Request, res: Response) => {
   try {
-    const { newPassword } = req.body;
+    const { uid, newPassword } = req.body;
 
-    if (!newPassword) {
+    if (!uid || !newPassword) {
       res.status(400).json({ error: "All fields are required" });
     }
 
-    const result = await changePassword(newPassword);
+    const result = await changePassword(uid, newPassword);
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
