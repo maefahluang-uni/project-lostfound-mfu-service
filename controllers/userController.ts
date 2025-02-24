@@ -7,7 +7,6 @@ import {
   changePassword,
 } from "../services/userService";
 import multer from "multer";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
