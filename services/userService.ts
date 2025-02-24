@@ -1,7 +1,7 @@
-import admin, {db, auth} from "../src/config/firebaseAdminConfig"
-import dotenv from "dotenv"
+import admin, { db, auth } from "../src/config/firebaseAdminConfig";
+import dotenv from "dotenv";
 
-dotenv.config()
+dotenv.config();
 
 interface UserResponse {
   message: string;
@@ -23,10 +23,11 @@ const signupUser = async (
   try {
     validateFields(fullName, email, password);
 
-    const userCredential =  await admin.auth().createUser({
+    const userCredential = await admin.auth().createUser({
+      displayName: fullName,
       email,
-      password
-  });
+      password,
+    });
 
     await db.collection("users").doc(userCredential.uid).set({
       fullName,
@@ -34,8 +35,8 @@ const signupUser = async (
       bio: "",
       profileImage: "",
       posts: [],
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-  });
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
     return { message: "User created successfully", userId: userCredential.uid };
   } catch (error: any) {
     throw new Error(`Signup failed: ${error.message}`);
@@ -49,11 +50,13 @@ const signinUser = async (
   try {
     validateFields(email, password);
 
-    const userCredential = await await admin.auth().getUserByEmail(email);
+    const userCredential = await admin.auth().getUserByEmail(email);
     const userDoc = await db.collection("users").doc(userCredential.uid).get();
     if (!userDoc.exists) throw new Error("User data not found");
 
-    const customToken = await admin.auth().createCustomToken(userCredential.uid);
+    const customToken = await admin
+      .auth()
+      .createCustomToken(userCredential.uid);
 
     const response = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${process.env.FIREBASE_API_KEY}`,
@@ -67,14 +70,14 @@ const signinUser = async (
       }
     );
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || "Failed to get ID token");
+    if (!response.ok)
+      throw new Error(data.error?.message || "Failed to get ID token");
 
     return {
       message: "User signed in successfully",
       token: data.idToken,
       userId: userCredential.uid,
     };
-
   } catch (error: any) {
     throw new Error(`Error creating login user: ${error.message}`);
   }
@@ -89,16 +92,19 @@ const getUser = async (uid: string) => {
 
     if (!userDoc.exists) throw new Error("User data not found in database");
 
-    const postsSnapshot = await db.collection("posts").where("userId", "==", uid).get();
-    const posts = postsSnapshot.docs.map((doc:any) => ({
-        id: doc.id,
-        ...doc.data(),
+    const postsSnapshot = await db
+      .collection("posts")
+      .where("userId", "==", uid)
+      .get();
+    const posts = postsSnapshot.docs.map((doc: any) => ({
+      id: doc.id,
+      ...doc.data(),
     }));
-
 
     return {
       uid,
-      fullName: userDoc.data()?.fullName || userRecord.displayName || "Unknown User",
+      fullName:
+        userDoc.data()?.fullName || userRecord.displayName || "Unknown User",
       email: userDoc.data()?.email || userRecord.email || "",
       bio: userDoc.data()?.bio || "",
       profileImage: userDoc.data()?.profileImage,
@@ -118,7 +124,10 @@ const updateUser = async (
   try {
     validateFields(uid, bio);
 
-    await db.collection("users").doc(uid).update({ fullName, bio, profileImage });
+    await db
+      .collection("users")
+      .doc(uid)
+      .update({ fullName, bio, profileImage });
 
     return { message: "User profile updated successfully" };
   } catch (error: any) {
@@ -126,12 +135,12 @@ const updateUser = async (
   }
 };
 
-const changePassword = async (uid:string, newPassword: string) => {
+const changePassword = async (uid: string, newPassword: string) => {
   try {
     validateFields(newPassword);
 
     await admin.auth().updateUser(uid, {
-      password: newPassword
+      password: newPassword,
     });
 
     return {
