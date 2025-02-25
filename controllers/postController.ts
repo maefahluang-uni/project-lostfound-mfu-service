@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getPosts, uploadPost } from "../services/postService";
+import { getPosts, getSinglePost, uploadPost } from "../services/postService";
 import { getCurrentUser } from "../middlewares/firebaseAuthMiddleware";
 import multer from "multer";
 
@@ -50,4 +50,21 @@ const getAllPostsController = async (req: Request, res: Response) => {
   }
 };
 
-export { uploadPostController, getAllPostsController };
+const getSinglePostController = async (req: Request, res: Response) => {
+  try {
+    const authToken = req.headers.authorization?.split("Bearer ")[1];
+    const userId = await getCurrentUser(authToken!);
+
+    if (!userId || typeof userId !== "string" || userId.length > 128) {
+      throw new Error("Invalid user ID.");
+    }
+    const { postId } = req.params;
+    const post = await getSinglePost(userId!, postId);
+    res.status(200).json(post);
+  } catch (error: any) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export { uploadPostController, getAllPostsController, getSinglePostController };
