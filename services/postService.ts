@@ -119,4 +119,41 @@ const getPosts = async (userId: string, itemStatus?: string) => {
   return posts;
 };
 
-export { uploadPost, getPosts };
+const getSinglePost = async (userId: string, postId: string) => {
+  const user = await admin.auth().getUser(userId);
+  if (!user) {
+    throw new Error("Must sign in");
+  }
+
+  const postDoc = await db.collection("posts").doc(postId).get();
+  if (!postDoc.exists) {
+    throw new Error("Post not found");
+  }
+  const postData = postDoc.data();
+
+  const postOwner = await admin.auth().getUser(postData!.ownerId);
+
+  const post = {
+    id: postDoc.id,
+    item: postData!.item || "Unknown",
+    itemStatus: postData!.itemStatus || "Unknown",
+    color: postData!.color || "Unknown",
+    phone: postData!.phone,
+    date: postData!.date,
+    time: postData!.time,
+    location: postData!.location || "Unknown",
+    desc: postData!.desc,
+    photos: postData!.photos,
+    ownerId: postData!.ownerId || "Unknown",
+    postOwner: {
+      id: postOwner.uid || "",
+      email: postOwner.email || "",
+      displayName: postOwner.displayName || "",
+      photoURL: postOwner.photoURL || "",
+    },
+  };
+
+  return { post };
+};
+
+export { uploadPost, getPosts, getSinglePost };
