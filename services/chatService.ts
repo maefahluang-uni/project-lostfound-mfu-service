@@ -1,4 +1,5 @@
 import { CHAT_MESSAGE_TYPE } from "../enums/chat";
+import { io } from "../src";
 import admin, {db} from "../src/config/firebaseAdminConfig";
 import { Filter } from "firebase-admin/firestore";
 
@@ -72,12 +73,13 @@ export const sendMessage = async(payload: ISendMessage) => {
             })
             const newMessage = await db.collection("chat_message").add({
                 type: payload.messageType,
-                room_id: payload.chatRoomId,
+                room_id: newChatRoom.id,
                 sender_id: payload.senderId,
                 content: payload.messageType === CHAT_MESSAGE_TYPE.TEXT ? payload.message : "",
                 attachmentUrl: payload.messageType === CHAT_MESSAGE_TYPE.IMAGE ? payload.message : "",
                 timestamp: admin.firestore.Timestamp.now()
             })
+            await emitChatRefresh(payload.chatRoomId!)
             return newMessage;
         }else{
             const existingChatRoom = await db.collection('chat_room').doc(payload.chatRoomId).get()
@@ -92,10 +94,15 @@ export const sendMessage = async(payload: ISendMessage) => {
                 room_id: existingChatRoom.id,
                 timestamp: admin.firestore.Timestamp.now()
             })
+            await emitChatRefresh(payload.chatRoomId!)
             return newMessage
         }    
-    }catch(err){
-        console.log(JSON.stringify(err))
-        throw new Error("Error sending message!")
+    }catch (err: any) {
+        console.error("Message Error:", err.message, err.stack); 
+        throw new Error("Error sending message: " + err.message); 
     }
+}
+
+const emitChatRefresh = async(roomId: string) => {
+    await io.to(roomId).emit('refresh', roomId)
 }
