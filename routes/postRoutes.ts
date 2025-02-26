@@ -1,12 +1,14 @@
 import { Router } from "express";
-import {
-  getAllPostsController,
-  getSinglePostController,
-  uploadPostController,
-} from "../controllers/postController";
+import * as postController from "../controllers/postController";
 
 export const PostRouter = Router();
 
-PostRouter.post("/upload-post", uploadPostController);
-PostRouter.get("/get-posts", getAllPostsController);
-PostRouter.get("/get-single-post/:postId", getSinglePostController);
+PostRouter.post("/upload-post", postController.uploadPostController);
+PostRouter.get("/get-posts", postController.getAllPostsController);
+PostRouter.get(
+  "/get-single-post/:postId",
+  postController.getSinglePostController
+);
+PostRouter.delete("/delete-post/:postId", postController.deletePostController);
+PostRouter.put("/edit-post/:postId", postController.editPostController);
+PostRouter.get("/share/:postId", postController.getViewablePostController);
