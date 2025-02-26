@@ -43,6 +43,31 @@ const signupUser = async (
   }
 };
 
+const googleSignupUser = async (idToken: string): Promise<UserResponse> => {
+  try {
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { email, name, picture } = decodedToken;
+
+    const userCredential = await auth.createUser({
+      displayName: name,
+      email,
+    });
+
+    await db.collection("users").doc(userCredential.uid).set({
+      fullName: name,
+      email,
+      bio: "",
+      profileImage: picture,
+      posts: [],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { message: "User created successfully", userId: userCredential.uid };
+  } catch (error: any) {
+    throw new Error(`Signup failed: ${error.message}`);
+  }
+};
+
 const signinUser = async (
   email: string,
   password: string
@@ -51,6 +76,44 @@ const signinUser = async (
     validateFields(email, password);
 
     const userCredential = await admin.auth().getUserByEmail(email);
+    const userDoc = await db.collection("users").doc(userCredential.uid).get();
+    if (!userDoc.exists) throw new Error("User data not found");
+
+    const customToken = await admin
+      .auth()
+      .createCustomToken(userCredential.uid);
+
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${process.env.FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: customToken,
+          returnSecureToken: true,
+        }),
+      }
+    );
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error?.message || "Failed to get ID token");
+
+    return {
+      message: "User signed in successfully",
+      token: data.idToken,
+      userId: userCredential.uid,
+    };
+  } catch (error: any) {
+    throw new Error(`Error creating login user: ${error.message}`);
+  }
+};
+
+const googleSigninUser = async (idToken: string): Promise<UserResponse> => {
+  try {
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { email } = decodedToken;
+
+    const userCredential = await auth.getUserByEmail(email!);
     const userDoc = await db.collection("users").doc(userCredential.uid).get();
     if (!userDoc.exists) throw new Error("User data not found");
 
@@ -151,4 +214,28 @@ const changePassword = async (uid: string, newPassword: string) => {
   }
 };
 
-export { signupUser, signinUser, getUser, updateUser, changePassword };
+const deleteUser = async (uid: string) => {
+  try {
+    validateFields(uid);
+
+    await admin.auth().deleteUser(uid);
+    await db.collection("users").doc(uid).delete();
+
+    return {
+      message: "User deleted successfully",
+    };
+  } catch (error: any) {
+    throw new Error(`Error deleting user: ${error.message}`);
+  }
+};
+
+export {
+  signupUser,
+  googleSignupUser,
+  signinUser,
+  googleSigninUser,
+  getUser,
+  updateUser,
+  changePassword,
+  deleteUser,
+};
