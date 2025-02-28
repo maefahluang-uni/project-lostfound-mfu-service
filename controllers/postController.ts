@@ -41,8 +41,12 @@ const getAllPostsController = async (req: Request, res: Response) => {
       throw new Error("Invalid user ID.");
     }
 
-    const { itemStatus } = req.query;
-    const posts = await postServices.getPosts(userId!, itemStatus as string);
+    const { itemStatus, search } = req.query;
+    const posts = await postServices.getPosts(
+      userId!,
+      itemStatus as string,
+      search as string
+    );
     res.status(200).json({ posts });
   } catch (error: any) {
     console.error(error);
