@@ -1,21 +1,13 @@
 import { Router } from "express";
-import {
-  changePasswordController,
-  deleteUserController,
-  getUserController,
-  googleSignupController,
-  signinUserController,
-  sigupUserController,
-  updateUserController,
-} from "../controllers/userController";
+import * as userController from "../controllers/userController";
 
 export const UserRouter = Router();
 
-UserRouter.post("/signup", sigupUserController);
-UserRouter.post("/google-signup", googleSignupController);
-UserRouter.post("/signin", signinUserController);
-UserRouter.post("/google-signin", googleSignupController);
-UserRouter.get("/user/:uid", getUserController);
-UserRouter.put("/user/:uid", updateUserController);
-UserRouter.post("/change-password", changePasswordController);
-UserRouter.delete("/user/:uid", deleteUserController);
+UserRouter.post("/signup", userController.signupUserController);
+UserRouter.post("/google-signup", userController.googleSignupController);
+UserRouter.post("/signin", userController.signinUserController);
+UserRouter.post("/google-signin", userController.googleSignupController);
+UserRouter.get("/user/:uid", userController.getUserController);
+UserRouter.put("/user/:uid", userController.updateUserController);
+UserRouter.post("/change-password", userController.changePasswordController);
+UserRouter.delete("/user/:uid", userController.deleteUserController);
