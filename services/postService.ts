@@ -80,6 +80,8 @@ const getPosts = async (userId: string, itemStatus?: string) => {
 
   let postsQuery: admin.firestore.Query = db.collection("posts");
 
+  postsQuery = postsQuery.where("itemStatus", "!=", "Resolved");
+
   if (itemStatus && ["Lost", "Found"].includes(itemStatus)) {
     postsQuery = postsQuery.where("itemStatus", "==", itemStatus);
   }

@@ -29,6 +29,10 @@ const signupUser = async (
       password,
     });
 
+    await admin
+      .auth()
+      .updateUser(userCredential.uid, { displayName: fullName });
+
     await db.collection("users").doc(userCredential.uid).set({
       fullName,
       email,
@@ -52,6 +56,7 @@ const googleSignupUser = async (idToken: string): Promise<UserResponse> => {
       displayName: name,
       email,
     });
+    await admin.auth().updateUser(userCredential.uid, { displayName: name });
 
     await db.collection("users").doc(userCredential.uid).set({
       fullName: name,
@@ -157,7 +162,7 @@ const getUser = async (uid: string) => {
 
     const postsSnapshot = await db
       .collection("posts")
-      .where("userId", "==", uid)
+      .where("ownerId", "==", uid)
       .get();
     const posts = postsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
@@ -192,6 +197,18 @@ const updateUser = async (
       .doc(uid)
       .update({ fullName, bio, profileImage });
 
+    const postsSnapshot = await db
+      .collection("posts")
+      .where("ownerId", "==", uid)
+      .get();
+    const batch = db.batch();
+
+    postsSnapshot.forEach((doc) => {
+      batch.update(doc.ref, { "postOwner.displayName": fullName });
+    });
+
+    await batch.commit();
+
     return { message: "User profile updated successfully" };
   } catch (error: any) {
     throw new Error(`Error updating user profile: ${error.message}`);
@@ -219,10 +236,23 @@ const deleteUser = async (uid: string) => {
     validateFields(uid);
 
     await admin.auth().deleteUser(uid);
+
     await db.collection("users").doc(uid).delete();
 
+    const postsSnapshot = await db
+      .collection("posts")
+      .where("ownerId", "==", uid)
+      .get();
+
+    const batch = db.batch();
+    postsSnapshot.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+
     return {
-      message: "User deleted successfully",
+      message: "User and his/her posts deleted successfully",
     };
   } catch (error: any) {
     throw new Error(`Error deleting user: ${error.message}`);

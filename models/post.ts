@@ -1,6 +1,7 @@
 enum itemStatus {
   Lost = "Lost",
   Found = "Found",
+  Resolved = "Resolved",
 }
 
 interface Post {
