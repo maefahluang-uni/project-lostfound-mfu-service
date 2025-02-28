@@ -52,11 +52,16 @@ const googleSignupUser = async (idToken: string): Promise<UserResponse> => {
     const decodedToken = await auth.verifyIdToken(idToken);
     const { email, name, picture } = decodedToken;
 
-    const userCredential = await auth.createUser({
-      displayName: name,
-      email,
-    });
-    await admin.auth().updateUser(userCredential.uid, { displayName: name });
+    let userCredential;
+
+    try {
+      userCredential = await auth.getUserByEmail(email!);
+    } catch (error) {
+      userCredential = await auth.createUser({
+        displayName: name,
+        email,
+      });
+    }
 
     await db.collection("users").doc(userCredential.uid).set({
       fullName: name,

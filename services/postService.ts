@@ -72,7 +72,11 @@ const uploadPost = async (userId: string, post: Post) => {
   }
 };
 
-const getPosts = async (userId: string, itemStatus?: string) => {
+const getPosts = async (
+  userId: string,
+  itemStatus?: string,
+  search?: string
+) => {
   const user = await admin.auth().getUser(userId);
   if (!user) {
     throw new Error("Must sign in");
@@ -91,32 +95,38 @@ const getPosts = async (userId: string, itemStatus?: string) => {
     throw new Error("No posts found");
   }
 
-  const posts = await Promise.all(
-    postsSnapshot.docs.map(async (doc) => {
-      const postData = doc.data();
-      const postOwner = await admin.auth().getUser(postData.ownerId);
+  let posts = postsSnapshot.docs.map((doc) => {
+    const postData = doc.data();
+    return {
+      id: doc.id,
+      item: postData.item || "Unknown",
+      itemStatus: postData.itemStatus || "Unknown",
+      color: postData.color || "Unknown",
+      phone: postData.phone,
+      date: postData.date,
+      time: postData.time,
+      location: postData.location || "Unknown",
+      desc: postData.desc,
+      photos: postData.photos,
+      ownerId: postData.ownerId || "Unknown",
+      postOwner: postData.postOwner || {
+        id: "",
+        email: "",
+        displayName: "Unknown User",
+        photoURL: "",
+      },
+    };
+  });
 
-      return {
-        id: doc.id,
-        item: postData.item || "Unknown", // Ensure values exist
-        itemStatus: postData.itemStatus || "Unknown",
-        color: postData.color,
-        phone: postData.phone,
-        date: postData.date,
-        time: postData.time,
-        location: postData.location || "Unknown",
-        desc: postData.desc,
-        photos: postData.photos,
-        ownerId: postData.ownerId || "Unknown",
-        postOwner: postData.postOwner || {
-          id: "",
-          email: "",
-          displayName: "Unknown User",
-          photoURL: "",
-        },
-      };
-    })
-  );
+  if (search) {
+    const searchTerms = search.toLowerCase().split(" ");
+
+    posts = posts.filter((post) => {
+      const searchableText =
+        `${post.item} ${post.color} ${post.location}`.toLowerCase();
+      return searchTerms.some((term) => searchableText.includes(term));
+    });
+  }
 
   return posts;
 };

@@ -45,13 +45,13 @@ const signinUserController = async (req: Request, res: Response) => {
 };
 
 const googleSigninController = async (req: Request, res: Response) => {
-  const { googleId } = req.body;
+  const { idToken } = req.body;
 
   try {
     const { message, token, userId } = await userServices.googleSigninUser(
-      googleId
+      idToken
     );
-    res.status(201).json({ message, token, user: { userId } });
+    res.status(200).json({ message, token, user: { userId } });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
