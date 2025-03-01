@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getAllChats, sendMessage } from "../services/chatService";
+import { getAllChats, getChatRoom, sendMessage } from "../services/chatService";
 import { getCurrentUser } from "../middlewares/firebaseAuthMiddleware";
 
 export const getAllUserChats = async(req: Request, res: Response) => {
@@ -27,5 +27,17 @@ export const sendChatMessage = async(req: Request, res: Response) => {
         res.status(200).json(sentMessage)
     }catch(err){
         res.status(500).json({message:"Error sending message"})
+    }
+}
+
+export const getChatRoomDetails = async(req:Request, res:Response) => {
+    try{
+        const authToken = req.headers.authorization?.split("Bearer ")[1]; 
+        const userId = await getCurrentUser(authToken!)
+        const {chatRoomId} = req.params
+        const chatRoom = await getChatRoom(chatRoomId, userId!)
+        res.status(200).json(chatRoom)
+    }catch(err){
+        res.status(500).json({message:"Error getting chat room"})
     }
 }

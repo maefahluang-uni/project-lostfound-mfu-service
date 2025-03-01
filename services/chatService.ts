@@ -21,9 +21,9 @@ export const getAllChats = async(userId: string) => {
     if(chatDocs.empty){
         return []
     }
-
     const chatRooms = await Promise.all(
-    chatDocs.docs.map(async (doc) => {
+    chatDocs.docs.map(async (doc, index) => {
+        const chatData = doc.data()
         const lastMessageDoc = await db.collection("chat_message")
                             .where("room_id", "==", doc.id)
                             .orderBy("timestamp", "desc")
@@ -35,11 +35,21 @@ export const getAllChats = async(userId: string) => {
                 id: lastMessageDoc.docs[0].id,
                 ...lastMessageDoc.docs[0].data()
             };
+
+        const chatProfileId = chatData.user_1_id === user.uid ? chatData.user_2_id : chatData.user_1_id
+        const userDoc = await db.collection("users").doc(chatProfileId).get()
+        const chatProfile = userDoc.exists ? userDoc.data() : null
+
         return {
             id: doc.id,
             lastMessage: {
                 messageType: lastMessage?.type,
-                content: lastMessage?.content
+                content: lastMessage?.content,
+                createdAt: new Date(lastMessage?.timestamp?.seconds * 1000)
+            },
+            chatProfile: {
+                id: chatProfileId,
+                fullName: chatProfile?.fullName
             },
             ...doc.data()
         }
@@ -51,6 +61,46 @@ export const getAllChats = async(userId: string) => {
     }
 }
 
+export const getChatRoom = async(chatRoomId: string, userId: string) => {
+    try {
+        const user = await admin.auth().getUser(userId);
+        if(!user){
+            console.log("Must sign in!")
+            return;
+        }
+        const chatRoomDoc = await db.collection('chat_room').doc(chatRoomId).get()
+        const chatRoomData = chatRoomDoc.exists ? chatRoomDoc.data() : null
+
+        const chatRoomMessagesDoc = await db.collection('chat_message').where('room_id','==',chatRoomId).orderBy('timestamp','asc').get()
+        if (chatRoomMessagesDoc.empty) {
+            return [];
+        }
+
+        const chatProfileId = chatRoomData?.user_1_id === user.uid ? chatRoomData?.user_2_id : chatRoomData?.user_1_id
+        const userDoc = await db.collection("users").doc(chatProfileId).get()
+        const chatProfile = userDoc.exists ? userDoc.data() : null
+
+        const messages = chatRoomMessagesDoc.docs.map((doc) => ({
+            id: doc.id,
+            type: doc.data().type,
+            sender_id: doc.data().sender_id,
+            content: doc.data().content,
+            attachmentUrl: doc.data().attachmentUrl,
+            room_id: doc.data().room_id,
+            createdAt: new Date(doc.data().timestamp?.seconds * 1000)
+        }));
+
+
+        const payload = {
+            id: chatRoomId,
+            chatProfile: chatProfile,
+            chatRoomMessages: messages
+        }
+        return payload
+    }catch(err){
+        console.error("Error getting chat room", err)
+    }
+}
 interface ISendMessage {
     messageType: CHAT_MESSAGE_TYPE,
     message: string,

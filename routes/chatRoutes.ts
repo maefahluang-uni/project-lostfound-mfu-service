@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { getAllUserChats, sendChatMessage } from "../controllers/chatController";
+import { getAllUserChats, getChatRoomDetails, sendChatMessage } from "../controllers/chatController";
 import firebaseAuthMiddleware from "../middlewares/firebaseAuthMiddleware";
 
 export const ChatRouter = Router();
 
 ChatRouter.get("/get_chats", firebaseAuthMiddleware, getAllUserChats)
 ChatRouter.post("/send_message", firebaseAuthMiddleware, sendChatMessage)
+ChatRouter.get("/get_chat_room/:chatRoomId", firebaseAuthMiddleware, getChatRoomDetails)
