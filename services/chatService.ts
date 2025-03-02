@@ -3,7 +3,7 @@ import { io } from "../src";
 import admin, {db} from "../src/config/firebaseAdminConfig";
 import { Filter } from "firebase-admin/firestore";
 
-export const getAllChats = async(userId: string) => {
+export const getAllChats = async(userId: string, searchQuery?: string) => {
     try{
     const user = await admin.auth().getUser(userId);
     if(!user){
@@ -40,6 +40,12 @@ export const getAllChats = async(userId: string) => {
         const userDoc = await db.collection("users").doc(chatProfileId).get()
         const chatProfile = userDoc.exists ? userDoc.data() : null
 
+        const unreadMessagesCount = await db.collection("chat_message")
+            .where("room_id", "==", doc.id)
+            .where("sender_id", "!=", user.uid) 
+            .where("seen_at", "==", null) 
+            .get()
+            .then(snapshot => snapshot.size);
         return {
             id: doc.id,
             lastMessage: {
@@ -47,6 +53,7 @@ export const getAllChats = async(userId: string) => {
                 content: lastMessage?.content,
                 createdAt: new Date(lastMessage?.timestamp?.seconds * 1000)
             },
+            unread_count: unreadMessagesCount,
             chatProfile: {
                 id: chatProfileId,
                 fullName: chatProfile?.fullName
@@ -54,7 +61,11 @@ export const getAllChats = async(userId: string) => {
             ...doc.data()
         }
     }))
-    return chatRooms
+    const filteredChatRooms = searchQuery
+    ? chatRooms.filter(chat => chat.chatProfile.fullName.toLowerCase().includes(searchQuery.toLowerCase()))
+    : chatRooms;
+
+    return filteredChatRooms;
     }catch(err){
         console.error("Error in getAllChats: ", err);
         throw new Error("Error fetching chat rooms");
@@ -78,8 +89,11 @@ export const getChatRoom = async(chatRoomId: string, userId: string) => {
 
         const chatProfileId = chatRoomData?.user_1_id === user.uid ? chatRoomData?.user_2_id : chatRoomData?.user_1_id
         const userDoc = await db.collection("users").doc(chatProfileId).get()
-        const chatProfile = userDoc.exists ? userDoc.data() : null
-
+        const chatProfileData = userDoc.exists ? userDoc.data() : null
+        const chatProfile = {
+            "id": chatProfileId,
+            ...chatProfileData
+        }
         const messages = chatRoomMessagesDoc.docs.map((doc) => ({
             id: doc.id,
             type: doc.data().type,
@@ -127,7 +141,8 @@ export const sendMessage = async(payload: ISendMessage) => {
                 sender_id: payload.senderId,
                 content: payload.messageType === CHAT_MESSAGE_TYPE.TEXT ? payload.message : "",
                 attachmentUrl: payload.messageType === CHAT_MESSAGE_TYPE.IMAGE ? payload.message : "",
-                timestamp: admin.firestore.Timestamp.now()
+                timestamp: admin.firestore.Timestamp.now(),
+                seen_at: null
             })
             await emitChatRefresh(payload.chatRoomId!)
             return newMessage;
@@ -142,7 +157,8 @@ export const sendMessage = async(payload: ISendMessage) => {
                 content: payload.messageType === "TEXT" ? payload.message : "",
                 attachmentUrl: payload.messageType === "IMAGE" ? payload.message : "",
                 room_id: existingChatRoom.id,
-                timestamp: admin.firestore.Timestamp.now()
+                timestamp: admin.firestore.Timestamp.now(),
+                seen_at: null
             })
             await emitChatRefresh(payload.chatRoomId!)
             return newMessage
@@ -152,6 +168,32 @@ export const sendMessage = async(payload: ISendMessage) => {
         throw new Error("Error sending message: " + err.message); 
     }
 }
+
+export const markMessagesAsRead = async (userId: string, chatRoomId: string) => {
+    try {
+        const unreadMessages = await db.collection("chat_message")
+            .where("room_id", "==", chatRoomId)
+            .where("sender_id", "!=", userId) 
+            .where("seen_at", "==", null) 
+            .get();
+
+        const batch = db.batch();
+        const timestamp = admin.firestore.Timestamp.now(); 
+        unreadMessages.forEach((doc) => {
+            batch.update(doc.ref, { seen_at: timestamp }); 
+        });
+
+        await batch.commit();
+
+        await emitChatRefresh(chatRoomId)
+
+        return { success: true, seen_at: timestamp };
+    } catch (error) {
+        console.error("Error marking messages as read:", error);
+        return { success: false, error };
+    }
+};
+
 
 const emitChatRefresh = async(roomId: string) => {
     await io.to(roomId).emit('refresh', roomId)

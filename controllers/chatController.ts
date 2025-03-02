@@ -1,12 +1,13 @@
 import { Request, Response } from "express";
-import { getAllChats, getChatRoom, sendMessage } from "../services/chatService";
+import { getAllChats, getChatRoom, markMessagesAsRead, sendMessage } from "../services/chatService";
 import { getCurrentUser } from "../middlewares/firebaseAuthMiddleware";
 
 export const getAllUserChats = async(req: Request, res: Response) => {
     try{
         const authToken = req.headers.authorization?.split("Bearer ")[1]; 
         const userId = await getCurrentUser(authToken!)
-        const allChats = await getAllChats(userId!)
+        const searchQuery = req.query.searchQuery as string | undefined;
+        const allChats = await getAllChats(userId!, searchQuery)
         res.status(200).json(allChats)
     }catch(err){
         res.status(500).json({ message: "Internal Server Error" });
@@ -27,6 +28,18 @@ export const sendChatMessage = async(req: Request, res: Response) => {
         res.status(200).json(sentMessage)
     }catch(err){
         res.status(500).json({message:"Error sending message"})
+    }
+}
+
+export const readChatMessage = async(req: Request, res: Response) => {
+    try {
+        const authToken = req.headers.authorization?.split("Bearer ")[1]; 
+        const userId = await getCurrentUser(authToken!)
+        const {chatRoomId} = req.params
+        await markMessagesAsRead(userId!, chatRoomId)
+        res.status(200).json("Messages read!")
+    }catch(err){
+        res.status(500).json({message:"Error reading chat messages"})
     }
 }
 
