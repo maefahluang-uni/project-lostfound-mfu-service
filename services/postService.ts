@@ -1,51 +1,72 @@
 import { Post } from "../models/post";
+import cloudinary from "../src/config/cloudinary";
 import admin, { db } from "../src/config/firebaseAdminConfig";
 
-// const upload = multer({ storage: multer.memoryStorage() });
-
-// const uploadImageToStorage = async (
-//   file: Express.Multer.File
-// ): Promise<string> => {
-//   const fileName = `posts/${Date.now()}_${file.originalname}`;
-//   const fileUpload = bucket.file(fileName);
-
-//   return new Promise((resolve, reject) => {
-//     const blobStream = fileUpload.createWriteStream({
-//       metadata: { contentType: file.mimetype },
-//     });
-
-//     blobStream.on("error", (error) => reject(error));
-
-//     blobStream.on("finish", async () => {
-//       await fileUpload.makePublic();
-//       const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-//       resolve(publicUrl);
-//     });
-
-//     blobStream.end(file.buffer);
-//   });
-// };
-
-const uploadPost = async (userId: string, post: Post) => {
+const uploadPost = async (
+  userId: string,
+  post: Post,
+  files: Express.Multer.File[]
+) => {
   const user = await admin.auth().getUser(userId);
   if (!user) {
     throw new Error("Must sign in");
   }
 
-  const { item, itemStatus, color, phone, date, time, location, desc, photos } =
-    post;
+  const { item, itemStatus, color, phone, date, time, location, desc } = post;
 
-  if (
-    item == null ||
-    itemStatus == null ||
-    date == null ||
-    time == null ||
-    location == null
-  ) {
+  if (!item || !itemStatus || !date || !time || !location) {
     throw new Error("All required fields must be provided");
   }
 
   try {
+    // Log files to check the file paths
+    console.log("Files to upload:", files);
+
+    // Check and upload files to Cloudinary
+    const uploadPhotos = await Promise.all(
+      files.map(async (file) => {
+        // Ensure file.buffer is of type Buffer
+        const buffer = Buffer.isBuffer(file.buffer)
+          ? file.buffer
+          : Buffer.from(file.buffer);
+
+        try {
+          // Upload the file buffer to Cloudinary
+          const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                folder: "posts",
+                resource_type: "auto", // Automatically detects file type (image, video, etc.)
+                public_id: file.originalname.split(".")[0], // Optional: Specify a custom public ID
+              },
+              (error, result) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve(result as { secure_url: string });
+                }
+              }
+            );
+            uploadStream.end(buffer);
+          });
+
+          console.log("Cloudinary upload result:", result);
+          return (result as { secure_url: string }).secure_url; // Return the URL of the uploaded file
+        } catch (cloudinaryError) {
+          console.error("Cloudinary upload error:", cloudinaryError);
+          throw new Error("Failed to upload image to Cloudinary");
+        }
+      })
+    );
+
+    // Filter out any null values in case any file upload failed
+    const validPhotos = uploadPhotos.filter((url) => url !== null);
+
+    if (validPhotos.length === 0) {
+      throw new Error("No valid files uploaded");
+    }
+
+    // Create the post document in Firestore
     const postRef = db.collection("posts").doc();
     await postRef.set({
       item,
@@ -56,7 +77,7 @@ const uploadPost = async (userId: string, post: Post) => {
       time,
       location,
       desc,
-      photos: photos || [],
+      photos: validPhotos, // Store only successfully uploaded URLs
       ownerId: userId,
       postOwner: {
         id: user.uid,
@@ -66,8 +87,10 @@ const uploadPost = async (userId: string, post: Post) => {
       },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
     return { id: postRef.id, item, itemStatus, location, ownerId: userId };
   } catch (error) {
+    console.error("Error in uploadPost service:", error);
     throw new Error("Failed to upload post");
   }
 };
