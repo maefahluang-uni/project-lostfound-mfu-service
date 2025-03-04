@@ -1,3 +1,4 @@
+import cloudinary from "../src/config/cloudinary";
 import admin, { db, auth } from "../src/config/firebaseAdminConfig";
 import dotenv from "dotenv";
 
@@ -192,30 +193,66 @@ const updateUser = async (
   uid: string,
   fullName: string,
   bio: string,
-  profileImage: string
-): Promise<{ message: string }> => {
+  profileImage: Express.Multer.File
+) => {
   try {
-    validateFields(uid, bio);
+    // Validate required fields
+    validateFields(uid, fullName, bio, profileImage);
 
-    await db
-      .collection("users")
-      .doc(uid)
-      .update({ fullName, bio, profileImage });
+    // Convert profile image buffer
+    const buffer = Buffer.isBuffer(profileImage.buffer)
+      ? profileImage.buffer
+      : Buffer.from(profileImage.buffer);
 
+    // Upload profile image to Cloudinary
+    const uploadedProfileImageUrl = await new Promise<string>(
+      (resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "users",
+            resource_type: "auto",
+            public_id: profileImage.originalname.split(".")[0], // Use filename (without extension) as public ID
+          },
+          (error, result) => {
+            if (error) {
+              reject(error); // Reject if there is an error
+            } else {
+              resolve(result?.secure_url || ""); // Resolve with the secure URL of the uploaded image
+            }
+          }
+        );
+        uploadStream.end(buffer); // End the upload stream
+      }
+    );
+
+    // Update the user's profile in Firestore
+    await db.collection("users").doc(uid).update({
+      fullName,
+      bio,
+      profileImage: uploadedProfileImageUrl, // Store the uploaded image URL
+    });
+
+    // Update the posts associated with the user to reflect the new profile image and full name
     const postsSnapshot = await db
       .collection("posts")
       .where("ownerId", "==", uid)
       .get();
+
     const batch = db.batch();
 
     postsSnapshot.forEach((doc) => {
-      batch.update(doc.ref, { "postOwner.displayName": fullName });
+      batch.update(doc.ref, {
+        "postOwner.displayName": fullName,
+        "postOwner.profileImage": uploadedProfileImageUrl,
+      });
     });
 
-    await batch.commit();
+    await batch.commit(); // Commit the batch update
 
-    return { message: "User profile updated successfully" };
+    return { message: "User profile updated successfully" }; // Return success message
   } catch (error: any) {
+    // Catch any error that occurs and return a clear error message
+    console.error("Error updating user profile:", error);
     throw new Error(`Error updating user profile: ${error.message}`);
   }
 };

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import * as userServices from "../services/userService";
 import multer from "multer";
+import { getCurrentUser } from "../middlewares/firebaseAuthMiddleware";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -70,27 +71,37 @@ const getUserController = async (req: Request, res: Response) => {
   }
 };
 
-const updateUserController = async (req: Request, res: Response) => {
-  try {
-    const { uid } = req.params;
-    const { fullName, bio, profileImage } = req.body;
-    if (!uid) {
-      res.status(400).json({ error: "User ID is required" });
-    }
+const updateUserController = [
+  upload.single("profileImage"),
+  async (req: Request, res: Response) => {
+    try {
+      const { uid } = req.params;
+      const { fullName, bio } = req.body;
 
-    const result = await userServices.updateUser(
-      uid,
-      fullName,
-      bio,
-      profileImage
-    );
-    res
-      .status(200)
-      .json({ message: "User created successfully", result: result });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
+      const authToken = req.headers.authorization?.split("Bearer ")[1];
+      if (!authToken) {
+        throw new Error("Unauthorized");
+      }
+
+      const userId = await getCurrentUser(authToken!);
+      if (!userId) {
+        throw new Error("Invalid user");
+      }
+
+      const file = req.file as Express.Multer.File;
+      if (!file) {
+        throw new Error("Please upload a file");
+      }
+
+      const result = await userServices.updateUser(uid, fullName, bio, file);
+      res
+        .status(201)
+        .json({ message: "User created successfully", result: result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+];
 
 const changePasswordController = async (req: Request, res: Response) => {
   try {

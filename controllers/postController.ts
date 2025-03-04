@@ -6,27 +6,32 @@ import multer from "multer";
 const upload = multer({ storage: multer.memoryStorage() });
 
 const uploadPostController = [
-  upload.single("photos"),
+  upload.array("photos", 5),
   async (req: Request, res: Response) => {
     const post = req.body;
-    // const file = req.file;
 
     try {
       const authToken = req.headers.authorization?.split("Bearer ")[1];
+      if (!authToken) {
+        throw new Error("No token provided");
+      }
+
       const userId = await getCurrentUser(authToken!);
+      if (!userId) {
+        throw new Error("Invalid user");
+      }
 
-      // let photos: string[] = [];
-      // if (file) {
-      //   const photoURL = await uploadImageToStorage(file);
-      //   photos.push(photoURL);
-      // }
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        throw new Error("At least one photo must be uploaded");
+      }
 
-      // post.photos = photos;
-      const newPost = await postServices.uploadPost(userId!, post);
+      const newPost = await postServices.uploadPost(userId!, post, files);
       res
         .status(201)
         .json({ message: "Post uploaded successfully", user: newPost });
     } catch (error: any) {
+      console.error("Error uploading post:", error);
       res.status(500).json({ error: error.message });
     }
   },
