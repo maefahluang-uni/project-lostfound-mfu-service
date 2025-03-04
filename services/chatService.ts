@@ -123,46 +123,46 @@ interface ISendMessage {
     chatRoomId?: string
 }
 export const sendMessage = async(payload: ISendMessage) => {
-
+    console.log(JSON.stringify(payload))
     try{
         if (!payload.senderId || !payload.receiverId || !payload.messageType || !payload.message) {
             throw new Error("Missing required fields: senderId, receiverId, or messageType");
         }
-        
-        if(!payload.chatRoomId){
+        let chatRoomId = payload.chatRoomId;
+
+        if (!chatRoomId) {
+            const existingChatRoom = await db.collection("chat_room")
+                .where("user_1_id", "in", [payload.senderId, payload.receiverId])
+                .where("user_2_id", "in", [payload.senderId, payload.receiverId])
+                .get();
+
+            if (!existingChatRoom.empty) {
+                chatRoomId = existingChatRoom.docs[0].id;
+            }
+        }
+        if (!chatRoomId) {
             const newChatRoom = await db.collection("chat_room").add({
                 user_1_id: payload.senderId,
                 user_2_id: payload.receiverId,
                 timestamp: admin.firestore.Timestamp.now()
-            })
-            const newMessage = await db.collection("chat_message").add({
-                type: payload.messageType,
-                room_id: newChatRoom.id,
-                sender_id: payload.senderId,
-                content: payload.messageType === CHAT_MESSAGE_TYPE.TEXT ? payload.message : "",
-                attachmentUrl: payload.messageType === CHAT_MESSAGE_TYPE.IMAGE ? payload.message : "",
-                timestamp: admin.firestore.Timestamp.now(),
-                seen_at: null
-            })
-            await emitChatRefresh(payload.chatRoomId!)
-            return newMessage;
-        }else{
-            const existingChatRoom = await db.collection('chat_room').doc(payload.chatRoomId).get()
-            if(!existingChatRoom.exists){
-                throw new Error("Chat room not found!")
-            }
-            const newMessage = await db.collection("chat_message").add({
-                type: payload.messageType,
-                sender_id: payload.senderId,
-                content: payload.messageType === "TEXT" ? payload.message : "",
-                attachmentUrl: payload.messageType === "IMAGE" ? payload.message : "",
-                room_id: existingChatRoom.id,
-                timestamp: admin.firestore.Timestamp.now(),
-                seen_at: null
-            })
-            await emitChatRefresh(payload.chatRoomId!)
-            return newMessage
-        }    
+            });
+
+            chatRoomId = newChatRoom.id;
+        }
+
+        const newMessage = await db.collection("chat_message").add({
+            type: payload.messageType,
+            sender_id: payload.senderId,
+            room_id: chatRoomId,
+            content: payload.messageType === CHAT_MESSAGE_TYPE.TEXT ? payload.message : "",
+            attachmentUrl: payload.messageType === CHAT_MESSAGE_TYPE.IMAGE ? payload.message : "",
+            timestamp: admin.firestore.Timestamp.now(),
+            seen_at: null
+        });
+
+        await emitChatRefresh(chatRoomId);
+
+        return newMessage;  
     }catch (err: any) {
         console.error("Message Error:", err.message, err.stack); 
         throw new Error("Error sending message: " + err.message); 
