@@ -25,7 +25,6 @@ const firebaseAuthMiddleware = async (req: any, res: any, next: any) => {
 export const getCurrentUser = async (authToken: string) => {
   try {
     const decodedToken = await auth.verifyIdToken(authToken);
-    console.log("Decoded Token:", decodedToken); // Debugging
     const userId = decodedToken.uid;
 
     return userId;

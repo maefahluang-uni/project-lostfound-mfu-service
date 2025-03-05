@@ -1,5 +1,6 @@
 import { CHAT_MESSAGE_TYPE } from "../enums/chat";
 import { io } from "../src";
+import cloudinary from "../src/config/cloudinary";
 import admin, {db} from "../src/config/firebaseAdminConfig";
 import { Filter } from "firebase-admin/firestore";
 
@@ -115,19 +116,26 @@ export const getChatRoom = async(chatRoomId: string, userId: string) => {
         console.error("Error getting chat room", err)
     }
 }
-interface ISendMessage {
+export interface ISendMessage {
     messageType: CHAT_MESSAGE_TYPE,
-    message: string,
+    message?: string,
     senderId: string,
     receiverId: string,
-    chatRoomId?: string
+    chatRoomId?: string,
+    file?: Express.Multer.File
 }
 export const sendMessage = async(payload: ISendMessage) => {
-    console.log(JSON.stringify(payload))
     try{
-        if (!payload.senderId || !payload.receiverId || !payload.messageType || !payload.message) {
-            throw new Error("Missing required fields: senderId, receiverId, or messageType");
+        if(payload.messageType && payload.messageType === 'TEXT'){
+            if (!payload.senderId || !payload.receiverId || !payload.messageType || !payload.message) {
+                throw new Error("Missing required fields: senderId, receiverId, or messageType");
+            }
+        }else{
+            if (!payload.file) {
+                throw new Error("Missing required fields: file");
+            }
         }
+
         let chatRoomId = payload.chatRoomId;
 
         if (!chatRoomId) {
@@ -149,17 +157,50 @@ export const sendMessage = async(payload: ISendMessage) => {
 
             chatRoomId = newChatRoom.id;
         }
+        let fileUrl: string = ''
+        if(payload.file){
+            const uploadPhoto = async (file:any) => {
 
+                const buffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from(file.buffer);
+              
+                try {
+
+                  const result = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                      {
+                        folder: "chat",
+                        resource_type: "auto", 
+                        public_id: file.originalname.split(".")[0], 
+                      },
+                      (error, result) => {
+                        if (error) {
+                          reject(error);
+                        } else {
+                          resolve(result as { secure_url: string });
+                        }
+                      }
+                    );
+                    uploadStream.end(buffer);
+                  });
+              
+                  console.log("Cloudinary upload result:", result);
+                  return (result as { secure_url: string }).secure_url; 
+                } catch (cloudinaryError) {
+                  console.error("Cloudinary upload error:", cloudinaryError);
+                  throw new Error("Failed to upload image to Cloudinary");
+                }
+              };
+              fileUrl = await uploadPhoto(payload?.file)
+        }
         const newMessage = await db.collection("chat_message").add({
             type: payload.messageType,
             sender_id: payload.senderId,
             room_id: chatRoomId,
             content: payload.messageType === CHAT_MESSAGE_TYPE.TEXT ? payload.message : "",
-            attachmentUrl: payload.messageType === CHAT_MESSAGE_TYPE.IMAGE ? payload.message : "",
+            attachmentUrl: payload.messageType === CHAT_MESSAGE_TYPE.IMAGE ? fileUrl : "",
             timestamp: admin.firestore.Timestamp.now(),
             seen_at: null
         });
-
         await emitChatRefresh(chatRoomId);
 
         return newMessage;  
