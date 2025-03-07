@@ -136,8 +136,11 @@ const googleSigninUser = async (idToken: string, fcmToken: string): Promise<User
 
     const userCredential = await auth.getUserByEmail(email!);
     const userDoc = await db.collection("users").doc(userCredential.uid).get();
+    const userRef = await db.collection("users").doc(userCredential.uid)
     if (!userDoc.exists) throw new Error("User data not found");
-
+    if (fcmToken) {
+      await userRef.set({ fcmToken }, { merge: true });
+    }
     const customToken = await admin
       .auth()
       .createCustomToken(userCredential.uid);
