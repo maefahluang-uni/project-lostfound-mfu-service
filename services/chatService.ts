@@ -52,7 +52,7 @@ export const getAllChats = async(userId: string, searchQuery?: string) => {
             lastMessage: {
                 messageType: lastMessage?.type,
                 content: lastMessage?.content,
-                createdAt: new Date(lastMessage?.timestamp?.seconds * 1000)
+                createdAt: lastMessage?.timestamp ? new Date(lastMessage?.timestamp .toDate().getTime() - (lastMessage?.timestamp .toDate().getTimezoneOffset() * 60000)).toISOString() : null
             },
             unread_count: unreadMessagesCount,
             chatProfile: {
@@ -102,9 +102,8 @@ export const getChatRoom = async(chatRoomId: string, userId: string) => {
             content: doc.data().content,
             attachmentUrl: doc.data().attachmentUrl,
             room_id: doc.data().room_id,
-            createdAt: new Date(doc.data().timestamp?.seconds * 1000)
+            createdAt: doc.data().timestamp ? new Date(doc.data().timestamp?.toDate().getTime() - (doc.data().timestamp?.toDate().getTimezoneOffset() * 60000)).toISOString() : null
         }));
-
 
         const payload = {
             id: chatRoomId,
