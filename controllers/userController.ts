@@ -106,14 +106,13 @@ const updateUserController = [
 ];
 
 const changePasswordController = async (req: Request, res: Response) => {
+  const { uid, oldPassword, newPassword } = req.body;
   try {
-    const { uid, newPassword } = req.body;
-
-    if (!uid || !newPassword) {
-      res.status(400).json({ error: "All fields are required" });
-    }
-
-    const result = await userServices.changePassword(uid, newPassword);
+    const result = await userServices.changePassword(
+      uid,
+      oldPassword,
+      newPassword
+    );
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
