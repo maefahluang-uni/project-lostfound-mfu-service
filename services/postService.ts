@@ -8,6 +8,8 @@ const uploadPost = async (
   files: Express.Multer.File[]
 ) => {
   const user = await admin.auth().getUser(userId);
+  console.log("User info " + user);
+
   if (!user) {
     throw new Error("Must sign in");
   }
@@ -102,7 +104,7 @@ const getPosts = async (
 ) => {
   const user = await admin.auth().getUser(userId);
   if (!user) {
-    throw new Error("Must sign in");
+    throw new Error("User not found. Please sign in.");
   }
 
   let postsQuery: admin.firestore.Query = db.collection("posts");

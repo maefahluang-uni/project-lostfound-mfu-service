@@ -86,33 +86,28 @@ const signinUser = async (
   try {
     validateFields(email, password);
 
-    const userCredential = await admin.auth().getUserByEmail(email);
-    const userDoc = await db.collection("users").doc(userCredential.uid).get();
-    if (!userDoc.exists) throw new Error("User data not found");
-
-    const customToken = await admin
-      .auth()
-      .createCustomToken(userCredential.uid);
-
+    // Authenticate user with Firebase
     const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${process.env.FIREBASE_API_KEY}`,
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token: customToken,
+          email: email,
+          password: password,
           returnSecureToken: true,
         }),
       }
     );
+
     const data = await response.json();
     if (!response.ok)
-      throw new Error(data.error?.message || "Failed to get ID token");
+      throw new Error(data.error?.message || "Invalid credentials");
 
     return {
       message: "User signed in successfully",
       token: data.idToken,
-      userId: userCredential.uid,
+      userId: data.localId, // Use localId from Firebase response
     };
   } catch (error: any) {
     throw new Error(`Error creating login user: ${error.message}`);
@@ -232,6 +227,11 @@ const updateUser = async (
       profileImage: uploadedProfileImageUrl, // Store the uploaded image URL
     });
 
+    await admin.auth().updateUser(uid, {
+      displayName: fullName,
+      photoURL: uploadedProfileImageUrl,
+    });
+
     // Update the posts associated with the user to reflect the new profile image and full name
     const postsSnapshot = await db
       .collection("posts")
@@ -257,13 +257,46 @@ const updateUser = async (
   }
 };
 
-const changePassword = async (uid: string, newPassword: string) => {
+const changePassword = async (
+  uid: string,
+  oldPassword: string,
+  newPassword: string
+) => {
   try {
-    validateFields(newPassword);
+    const userRecord = await admin.auth().getUser(uid);
+    if (!userRecord.email) throw new Error("User email not found");
 
-    await admin.auth().updateUser(uid, {
-      password: newPassword,
-    });
+    const authResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userRecord.email,
+          password: oldPassword,
+          returnSecureToken: true,
+        }),
+      }
+    );
+
+    const authData = await authResponse.json();
+    if (!authResponse.ok) throw new Error("Old password is incorrect");
+
+    const updateResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${process.env.FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idToken: authData.idToken, // Authenticated token from old password
+          password: newPassword,
+          returnSecureToken: false,
+        }),
+      }
+    );
+
+    const updateData = await updateResponse.json();
+    if (!updateResponse.ok) throw new Error("Failed to update password");
 
     return {
       message: "Password updated successfully",

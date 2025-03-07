@@ -22,9 +22,9 @@ const uploadPostController = [
       }
 
       const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
-        throw new Error("At least one photo must be uploaded");
-      }
+      // if (!files || files.length === 0) {
+      //   throw new Error("At least one photo must be uploaded");
+      // }
 
       const newPost = await postServices.uploadPost(userId!, post, files);
       res
@@ -95,7 +95,7 @@ const deletePostController = async (req: Request, res: Response) => {
 };
 
 const editPostController = [
-  upload.single("photos"),
+  upload.array("photos", 5),
   async (req: Request, res: Response) => {
     try {
       const authToken = req.headers.authorization?.split("Bearer ")[1];
