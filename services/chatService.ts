@@ -200,6 +200,8 @@ export const sendMessage = async(payload: ISendMessage) => {
             timestamp: admin.firestore.Timestamp.now(),
             seen_at: null
         });
+        await sendPushNotification(payload.receiverId, payload.senderId, payload.message || "You have a new message", chatRoomId);
+
         await emitChatRefresh(chatRoomId);
 
         return newMessage;  
@@ -234,6 +236,44 @@ export const markMessagesAsRead = async (userId: string, chatRoomId: string) => 
     }
 };
 
+const sendPushNotification = async (receiverId: string, senderId: string, message: string, chatRoomId: string) => {
+    try {
+      const receiverDoc = await db.collection("users").doc(receiverId).get();
+      if (!receiverDoc.exists) {
+        console.log("Receiver not found.");
+        return;
+      }
+  
+      const receiverData = receiverDoc.data();
+      const fcmToken = receiverData?.fcmToken;
+  
+      if (!fcmToken) {
+        console.log("No FCM token found for user.");
+        return;
+      }
+  
+      const senderDoc = await db.collection("users").doc(senderId).get();
+      const senderName = senderDoc.exists ? senderDoc.data()?.fullName || "Someone" : "Someone";
+  
+      const messagePayload = {
+        notification: {
+          title: `${senderName} sent you a message`,
+          body: message,
+        },
+        data: {
+          chatRoomId: chatRoomId,
+          senderId: senderId,
+          receiverId: receiverId,
+        },
+        token: fcmToken, 
+      };
+  
+      await admin.messaging().send(messagePayload);
+      console.log(`Notification sent to ${receiverId}`);
+    } catch (error) {
+      console.error("Error sending notification:", error);
+    }
+  };
 
 const emitChatRefresh = async(roomId: string) => {
     await io.to(roomId).emit('refresh', roomId)
