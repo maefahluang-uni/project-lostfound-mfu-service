@@ -8,6 +8,7 @@ interface UserResponse {
   message: string;
   userId?: string;
   token?: string;
+  fcmToken?: string;
 }
 
 const validateFields = (...fields: any[]) => {
@@ -81,10 +82,23 @@ const googleSignupUser = async (idToken: string): Promise<UserResponse> => {
 
 const signinUser = async (
   email: string,
-  password: string
+  password: string,
+  fcmToken?:string
 ): Promise<UserResponse> => {
   try {
     validateFields(email, password);
+
+    const userCredential = await admin.auth().getUserByEmail(email);
+    const userDoc = await db.collection("users").doc(userCredential.uid).get();
+    const userRef = await db.collection('users').doc(userCredential.uid)
+    if (!userDoc.exists) throw new Error("User data not found");
+
+    if (fcmToken) {
+      await userRef.set({ fcmToken }, { merge: true });
+    }
+    const customToken = await admin
+      .auth()
+      .createCustomToken(userCredential.uid);
 
     // Authenticate user with Firebase
     const response = await fetch(
@@ -108,21 +122,25 @@ const signinUser = async (
       message: "User signed in successfully",
       token: data.idToken,
       userId: data.localId, // Use localId from Firebase response
+      fcmToken: fcmToken || "No FCM token provided"
     };
   } catch (error: any) {
     throw new Error(`Error creating login user: ${error.message}`);
   }
 };
 
-const googleSigninUser = async (idToken: string): Promise<UserResponse> => {
+const googleSigninUser = async (idToken: string, fcmToken: string): Promise<UserResponse> => {
   try {
     const decodedToken = await auth.verifyIdToken(idToken);
     const { email } = decodedToken;
 
     const userCredential = await auth.getUserByEmail(email!);
     const userDoc = await db.collection("users").doc(userCredential.uid).get();
+    const userRef = await db.collection("users").doc(userCredential.uid)
     if (!userDoc.exists) throw new Error("User data not found");
-
+    if (fcmToken) {
+      await userRef.set({ fcmToken }, { merge: true });
+    }
     const customToken = await admin
       .auth()
       .createCustomToken(userCredential.uid);

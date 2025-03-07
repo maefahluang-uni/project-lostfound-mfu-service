@@ -17,12 +17,14 @@ export const getAllUserChats = async(req: Request, res: Response) => {
 export const sendChatMessage = async(req: Request, res: Response) => {
     try{
         const {messageType, message, senderId, receiverId, chatRoomId} = req.body
+        const file = req.file
         const messagePayload = {
             messageType,
             message,
             senderId,
             receiverId,
-            chatRoomId
+            chatRoomId,
+            file
         }
         const sentMessage = await sendMessage(messagePayload)
         res.status(200).json(sentMessage)

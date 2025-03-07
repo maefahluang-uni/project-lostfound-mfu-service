@@ -32,12 +32,13 @@ const googleSignupController = async (req: Request, res: Response) => {
 };
 
 const signinUserController = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-
+  const { email, password, fcmToken } = req.body;
+  console.log(JSON.stringify(req.body))
   try {
     const { message, token, userId } = await userServices.signinUser(
       email,
-      password
+      password,
+      fcmToken
     );
     res.status(201).json({ message, token, user: { userId } });
   } catch (error: any) {
@@ -46,11 +47,12 @@ const signinUserController = async (req: Request, res: Response) => {
 };
 
 const googleSigninController = async (req: Request, res: Response) => {
-  const { idToken } = req.body;
+  const { idToken, fcmToken } = req.body;
 
   try {
     const { message, token, userId } = await userServices.googleSigninUser(
-      idToken
+      idToken,
+      fcmToken
     );
     res.status(200).json({ message, token, user: { userId } });
   } catch (error: any) {
