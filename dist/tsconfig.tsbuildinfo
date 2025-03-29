@@ -1,0 +1,1 @@
+{"root":["../controllers/examplecontroller.ts","../controllers/usercontroller.ts","../routes/exampleroutes.ts","../routes/index.ts","../routes/userroutes.ts","../services/exampleservice.ts","../services/userservice.ts","../src/index.ts","../src/config/firebaseconfig.ts"],"version":"5.7.3"}
