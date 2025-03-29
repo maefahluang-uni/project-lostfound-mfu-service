@@ -7,6 +7,7 @@ export const getAllUserChats = async(req: Request, res: Response) => {
         const authToken = req.headers.authorization?.split("Bearer ")[1]; 
         const userId = await getCurrentUser(authToken!)
         const searchQuery = req.query.searchQuery as string | undefined;
+        console.log(JSON.stringify("Search query is " + searchQuery))
         const allChats = await getAllChats(userId!, searchQuery)
         res.status(200).json(allChats)
     }catch(err){
