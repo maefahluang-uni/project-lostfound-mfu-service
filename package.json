@@ -22,18 +22,17 @@
     "express": "^4.21.2",
     "firebase": "^11.3.1",
     "firebase-admin": "^13.1.0",
-
+    "http": "^0.0.1-security",
     "multer": "^1.4.5-lts.1",
     "multer-storage-cloudinary": "^4.0.0",
     "punycode": "^2.3.1",
-    "http": "^0.0.1-security",
     "socket.io": "^4.8.1"
-
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/multer": "^1.4.12",
+    "@types/node": "^22.13.10",
     "@types/ws": "^8.5.14",
     "nodemon": "^3.1.9",
     "rimraf": "^5.0.5",

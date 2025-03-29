@@ -5,15 +5,19 @@ import "dotenv/config";
 const apps = getApps();
 
 if (!apps.length) {
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+
+  if (!serviceAccountPath) {
+    throw new Error(
+      "Service account JSON file path is missing in environment variables"
+    );
+  }
+
   initializeApp({
-    credential: cert("./service_account.json"),
-    // storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    credential: cert(serviceAccountPath),
   });
 }
 
 export const db = admin.firestore();
 export const auth = admin.auth();
-// export const bucket = admin
-//   .storage()
-//   .bucket("lost-and-found-in-mfu-service.firebasestorage.app");
 export default admin;
