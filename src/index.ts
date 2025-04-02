@@ -5,7 +5,8 @@ import { Server } from 'socket.io';
 import { createServer } from "http";
 const app = express();
 
-const PORT = 3001;
+const PORT = process.env.PORT || 8080;
+
 const SERVER_PORT = 8181
 
 app.use(cors());
