@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { initializeApp, getApps, cert, applicationDefault } from "firebase-admin/app";
 import admin from "firebase-admin";
 import "dotenv/config";
 
@@ -7,15 +7,11 @@ const apps = getApps();
 if (!apps.length) {
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
 
-  if (!serviceAccountPath) {
-    throw new Error(
-      "Service account JSON file path is missing in environment variables"
-    );
-  }
+  const credential = serviceAccountPath
+    ? cert(serviceAccountPath) 
+    : applicationDefault();    
 
-  initializeApp({
-    credential: cert(serviceAccountPath),
-  });
+  initializeApp({ credential });
 }
 
 export const db = admin.firestore();
