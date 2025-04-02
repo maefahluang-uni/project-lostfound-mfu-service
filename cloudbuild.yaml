@@ -21,6 +21,8 @@ steps:
       - 'managed'
       - '--port'
       - '8080'
+      - '--timeout'
+      - '300s'
 images:
   - 'us-central1-docker.pkg.dev/${_PROJECT_ID}/webdev-dockers/lostfound-webservice'
 
