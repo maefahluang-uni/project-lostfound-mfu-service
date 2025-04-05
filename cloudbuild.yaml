@@ -23,7 +23,7 @@ steps:
       - '8080'
       - '--timeout'
       - '300s'
-      - '--set-env-vars'
+    env:
       - 'FIREBASE_API_KEY=${_FIREBASE_API_KEY}'
       - 'FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}'
       - 'FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID}'
