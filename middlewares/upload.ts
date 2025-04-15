@@ -23,6 +23,7 @@ const storage = new CloudinaryStorage({
       folder: "posts",
       format,
       public_id: publicId, // Ensure unique public ID
+      upload_preset: 'my_unsigned_uploads'
     };
   },
 });

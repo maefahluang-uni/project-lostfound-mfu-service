@@ -225,6 +225,7 @@ const updateUser = async (
             folder: "users",
             resource_type: "auto",
             public_id: profileImage.originalname.split(".")[0], // Use filename (without extension) as public ID
+            upload_preset: 'my_unsigned_uploads'
           },
           (error, result) => {
             if (error) {
