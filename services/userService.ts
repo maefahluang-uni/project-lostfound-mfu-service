@@ -218,26 +218,27 @@ const updateUser = async (
       : Buffer.from(profileImage.buffer);
 
     // Upload profile image to Cloudinary
-    const uploadedProfileImageUrl = await new Promise<string>(
-      (resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: "users",
-            resource_type: "auto",
-            public_id: profileImage.originalname.split(".")[0], // Use filename (without extension) as public ID
-            upload_preset: 'my_unsigned_uploads'
-          },
-          (error, result) => {
-            if (error) {
-              reject(error); // Reject if there is an error
-            } else {
-              resolve(result?.secure_url || ""); // Resolve with the secure URL of the uploaded image
-            }
-          }
-        );
-        uploadStream.end(buffer); // End the upload stream
+    const uploadedProfileImageUrl = await cloudinary.uploader.unsigned_upload(
+      `data:${profileImage.mimetype};base64,${buffer.toString('base64')}`,
+      'my_unsigned_uploads',
+      {
+        folder: 'users',
+        public_id: profileImage.originalname.split(".")[0],
+        resource_type: 'auto',
       }
-    );
+    )
+    .then((result) => {
+      if (!result || !result.secure_url) {
+        console.error("Cloudinary upload failed:", result);
+        throw new Error("Cloudinary upload failed - no secure URL returned");
+      }
+      return result.secure_url;
+    })
+    .catch((err) => {
+      console.error("Cloudinary unsigned upload error:", err);
+      throw new Error("Failed to upload image to Cloudinary");
+    });
+    
 
     // Update the user's profile in Firestore
     await db.collection("users").doc(uid).update({
