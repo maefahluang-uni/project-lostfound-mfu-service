@@ -216,14 +216,15 @@ const updateUser = async (
     const buffer = Buffer.isBuffer(profileImage.buffer)
       ? profileImage.buffer
       : Buffer.from(profileImage.buffer);
-
+    const originalName = profileImage.originalname.split(".")[0];
+    const safePublicId = originalName.replace(/[\/\\]/g, "_");
     // Upload profile image to Cloudinary
     const uploadedProfileImageUrl = await cloudinary.uploader.unsigned_upload(
       `data:${profileImage.mimetype};base64,${buffer.toString('base64')}`,
       'my_unsigned_uploads',
       {
         folder: 'users',
-        public_id: profileImage.originalname.split(".")[0],
+        public_id: safePublicId,
         resource_type: 'auto',
       }
     )
