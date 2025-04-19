@@ -157,41 +157,47 @@ export const sendMessage = async(payload: ISendMessage) => {
             chatRoomId = newChatRoom.id;
         }
         let fileUrl: string = ''
-        if(payload.file){
-            const uploadPhoto = async (file:any) => {
-
-                const buffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from(file.buffer);
-              
-                try {
-
-                  const result = await new Promise((resolve, reject) => {
-                    const uploadStream = cloudinary.uploader.upload_stream(
-                      {
-                        folder: "chat",
-                        resource_type: "auto", 
-                        public_id: file.originalname.split(".")[0], 
-                      },
-                      (error, result) => {
-                        if (error) {
-                          reject(error);
-                        } else {
-                          resolve(result as { secure_url: string });
-                        }
-                      }
-                    );
-                    uploadStream.end(buffer);
+        if (payload.file) {
+            const uploadPhoto = async (file: any) => {
+              const buffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from(file.buffer);
+              const originalName = file.originalname.split(".")[0] || "uploaded_file";
+              const safePublicId = originalName.replace(/[^a-zA-Z0-9-_]/g, "_");
+          
+              try {
+                const secureUrl = await new Promise<string>((resolve, reject) => {
+                  cloudinary.uploader.unsigned_upload(
+                    `data:${file.mimetype};base64,${buffer.toString('base64')}`,
+                    'my_unsigned_uploads',
+                    {
+                      folder: 'chat',
+                      public_id: safePublicId,
+                      resource_type: 'image',
+                    }
+                  )
+                  .then((result) => {
+                    if (!result || !result.secure_url) {
+                      console.error("Cloudinary upload failed:", result);
+                      return reject(new Error("Cloudinary upload failed - no secure URL returned"));
+                    }
+                    console.log("Cloudinary upload success:", result.secure_url);
+                    resolve(result.secure_url);
+                  })
+                  .catch((error) => {
+                    console.error("Cloudinary unsigned upload error:", error);
+                    reject(new Error("Failed to upload image to Cloudinary"));
                   });
-              
-                  console.log("Cloudinary upload result:", result);
-                  return (result as { secure_url: string }).secure_url; 
-                } catch (cloudinaryError) {
-                  console.error("Cloudinary upload error:", cloudinaryError);
-                  throw new Error("Failed to upload image to Cloudinary");
-                }
-              };
-              fileUrl = await uploadPhoto(payload?.file)
-        }
-        const newMessage = await db.collection("chat_message").add({
+                });
+          
+                return secureUrl;
+              } catch (cloudinaryError) {
+                console.error("Cloudinary upload final catch error:", cloudinaryError);
+                throw new Error(`Cloudinary upload failed: ${cloudinaryError}`);
+              }
+            };
+          
+            fileUrl = await uploadPhoto(payload?.file);
+          }
+                  const newMessage = await db.collection("chat_message").add({
             type: payload.messageType,
             sender_id: payload.senderId,
             room_id: chatRoomId,

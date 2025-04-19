@@ -8,7 +8,6 @@ const uploadPost = async (
   files: Express.Multer.File[]
 ) => {
   const user = await admin.auth().getUser(userId);
-  console.log("User info " + user);
 
   if (!user) {
     throw new Error("Must sign in");
@@ -21,39 +20,37 @@ const uploadPost = async (
   }
 
   try {
-    // Log files to check the file paths
-    console.log("Files to upload:", files);
-
-    // Check and upload files to Cloudinary
     const uploadPhotos = await Promise.all(
       files.map(async (file) => {
-        // Ensure file.buffer is of type Buffer
         const buffer = Buffer.isBuffer(file.buffer)
           ? file.buffer
           : Buffer.from(file.buffer);
 
+        const originalName = file.originalname.split(".")[0] || "uploaded_file";
+        const safePublicId = originalName.replace(/[^a-zA-Z0-9-_]/g, "_");
+
         try {
-          // Upload the file buffer to Cloudinary
-          const result = await new Promise((resolve, reject) => {
+          const secureUrl = await new Promise<string>((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
               {
                 folder: "posts",
-                resource_type: "auto", // Automatically detects file type (image, video, etc.)
-                public_id: file.originalname.split(".")[0], // Optional: Specify a custom public ID
+                resource_type: "auto",
+                public_id: safePublicId,
               },
               (error, result) => {
                 if (error) {
-                  reject(error);
-                } else {
-                  resolve(result as { secure_url: string });
+                  return reject(error);
                 }
+                if (!result || !result.secure_url) {
+                  return reject(new Error("Cloudinary upload failed - no secure URL returned"));
+                }
+                resolve(result.secure_url);
               }
             );
             uploadStream.end(buffer);
           });
 
-          console.log("Cloudinary upload result:", result);
-          return (result as { secure_url: string }).secure_url; // Return the URL of the uploaded file
+          return secureUrl;
         } catch (cloudinaryError) {
           console.error("Cloudinary upload error:", cloudinaryError);
           throw new Error("Failed to upload image to Cloudinary");
@@ -61,14 +58,12 @@ const uploadPost = async (
       })
     );
 
-    // Filter out any null values in case any file upload failed
     const validPhotos = uploadPhotos.filter((url) => url !== null);
 
     if (validPhotos.length === 0) {
       throw new Error("No valid files uploaded");
     }
 
-    // Create the post document in Firestore
     const postRef = db.collection("posts").doc();
     await postRef.set({
       item,
@@ -79,7 +74,7 @@ const uploadPost = async (
       time,
       location,
       desc,
-      photos: validPhotos, // Store only successfully uploaded URLs
+      photos: validPhotos,
       ownerId: userId,
       postOwner: {
         id: user.uid,
