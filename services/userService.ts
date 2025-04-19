@@ -226,6 +226,7 @@ const updateUser = async (
         folder: 'users',
         public_id: safePublicId,
         resource_type: 'image',
+        display_name: safePublicId
       }
     )
     .then((result) => {
