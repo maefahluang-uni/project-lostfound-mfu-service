@@ -8,10 +8,7 @@ const uploadPost = async (
   files: Express.Multer.File[]
 ) => {
   const user = await admin.auth().getUser(userId);
-
-  if (!user) {
-    throw new Error("Must sign in");
-  }
+  if (!user) throw new Error("Must sign in");
 
   const { item, itemStatus, color, phone, date, time, location, desc } = post;
 
@@ -29,32 +26,21 @@ const uploadPost = async (
         const originalName = file.originalname.split(".")[0] || "uploaded_file";
         const safePublicId = originalName.replace(/[^a-zA-Z0-9-_]/g, "_");
 
-        try {
-          const secureUrl = await new Promise<string>((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-              {
-                folder: "posts",
-                resource_type: "auto",
-                public_id: safePublicId,
-              },
-              (error, result) => {
-                if (error) {
-                  return reject(error);
-                }
-                if (!result || !result.secure_url) {
-                  return reject(new Error("Cloudinary upload failed - no secure URL returned"));
-                }
-                resolve(result.secure_url);
-              }
-            );
-            uploadStream.end(buffer);
-          });
+        const result = await cloudinary.uploader.unsigned_upload(
+          `data:${file.mimetype};base64,${buffer.toString("base64")}`,
+          'my_unsigned_uploads',
+          {
+            folder: "posts",
+            public_id: safePublicId,
+            resource_type: "auto",
+          }
+        );
 
-          return secureUrl;
-        } catch (cloudinaryError) {
-          console.error("Cloudinary upload error:", cloudinaryError);
-          throw new Error("Failed to upload image to Cloudinary");
+        if (!result.secure_url) {
+          throw new Error("Cloudinary upload failed - no secure URL returned");
         }
+
+        return result.secure_url;
       })
     );
 
@@ -91,7 +77,6 @@ const uploadPost = async (
     throw new Error("Failed to upload post");
   }
 };
-
 const getPosts = async (
   userId: string,
   itemStatus?: string,
